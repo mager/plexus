@@ -1,10 +1,11 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 
 export type AskInput = {
   model: string;
   prompt: string;
   resumeSessionId?: string;
   systemPrompt?: string;
+  mcpServers?: Record<string, McpServerConfig>;
 };
 
 export type AskResult = {
@@ -25,6 +26,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
       resume: input.resumeSessionId,
       permissionMode: "bypassPermissions",
       systemPrompt: input.systemPrompt,
+      mcpServers: input.mcpServers,
     },
   })) {
     if (msg.type === "system" && msg.subtype === "init") {
@@ -33,6 +35,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
     if (msg.type === "assistant") {
       for (const block of msg.message.content) {
         if (block.type === "text") chunks.push(block.text);
+        if (block.type === "tool_use") console.log(`  [tool] ${block.name}`);
       }
     }
     if (msg.type === "result" && "usage" in msg && msg.usage) {

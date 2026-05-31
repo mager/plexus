@@ -2,13 +2,30 @@ import "dotenv/config";
 import type { Channel, IncomingMessage } from "./channels/types.ts";
 import { telegram } from "./channels/telegram.ts";
 import { cli } from "./channels/cli.ts";
-import { ask } from "./agent.ts";
+import { ask, type AskInput } from "./agent.ts";
 import { MODELS, type ModelKey, pickModel } from "./router.ts";
 import * as state from "./state.ts";
 
-const SYSTEM = `You are a personal assistant reached over chat channels (Telegram, CLI).
+const SYSTEM_BASE = `You are a personal assistant reached over chat channels (Telegram, CLI).
 Be concise. Skip preamble. Plain text — no markdown headers, no bullet lists unless asked.
 If the user wants code, give it cleanly without prose padding.`;
+
+const MEMORY_SYSTEM = `You have a persistent memory via the gbrain MCP tools (search, query, get_page, put_page, add_timeline_entry, get_backlinks, …).
+Before answering anything about the user, their people, projects, or past conversations, search your memory first — don't guess what you could look up.
+Compound engineering: when a message reveals a durable fact, preference, decision, or a correction to something you got wrong, write it back to gbrain (put_page for facts, add_timeline_entry for events) so the system gets smarter every time it's used. Capture the learning, not the chatter. Link related pages with [[wikilinks]].`;
+
+function memoryEnabled(): boolean {
+  return process.env.PLEXUS_MEMORY === "gbrain" || process.env.PLEXUS_GBRAIN === "1";
+}
+
+function memoryServers(): AskInput["mcpServers"] {
+  if (!memoryEnabled()) return undefined;
+  return {
+    gbrain: { type: "stdio", command: process.env.GBRAIN_BIN ?? "gbrain", args: ["serve"] },
+  };
+}
+
+const SYSTEM = memoryEnabled() ? `${SYSTEM_BASE}\n\n${MEMORY_SYSTEM}` : SYSTEM_BASE;
 
 async function handle(msg: IncomingMessage) {
   const { conversationId, text } = msg;
@@ -40,6 +57,7 @@ async function handle(msg: IncomingMessage) {
       prompt: text,
       resumeSessionId: s.sessionId,
       systemPrompt: SYSTEM,
+      mcpServers: memoryServers(),
     });
     state.update(conversationId, { sessionId: res.sessionId });
     await msg.reply(res.text || "(empty)");
