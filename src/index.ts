@@ -5,6 +5,7 @@ import { cli } from "./channels/cli.ts";
 import { ask, type AskInput } from "./agent.ts";
 import { MODELS, type ModelKey, pickModel } from "./router.ts";
 import * as state from "./state.ts";
+import * as cost from "./cost.ts";
 
 const SYSTEM_BASE = `You are a personal assistant reached over chat channels (Telegram, CLI).
 Be concise. Skip preamble. Plain text — no markdown headers, no bullet lists unless asked.
@@ -60,6 +61,8 @@ async function handle(msg: IncomingMessage) {
       mcpServers: memoryServers(),
     });
     state.update(conversationId, { sessionId: res.sessionId });
+    cost.record(model, res.costUsd);
+    if (res.costUsd) console.log(`  cost: $${res.costUsd.toFixed(4)}`);
     await msg.reply(res.text || "(empty)");
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
@@ -99,11 +102,16 @@ async function handleCommand(msg: IncomingMessage): Promise<boolean> {
       await msg.reply("✓ context cleared");
       return true;
     }
+    case "cost": {
+      await msg.reply(cost.summary(shortName));
+      return true;
+    }
     case "help": {
       await msg.reply(
         [
           "/model opus|sonnet|haiku|auto — pick model",
           "/reset — clear conversation context",
+          "/cost — spend summary",
           "/help — this",
         ].join("\n"),
       );

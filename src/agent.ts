@@ -12,12 +12,14 @@ export type AskResult = {
   text: string;
   sessionId: string;
   usage?: { input: number; output: number };
+  costUsd?: number;
 };
 
 export async function ask(input: AskInput): Promise<AskResult> {
   const chunks: string[] = [];
   let sessionId = input.resumeSessionId ?? "";
   let usage: AskResult["usage"];
+  let costUsd: number | undefined;
 
   for await (const msg of query({
     prompt: input.prompt,
@@ -38,13 +40,18 @@ export async function ask(input: AskInput): Promise<AskResult> {
         if (block.type === "tool_use") console.log(`  [tool] ${block.name}`);
       }
     }
-    if (msg.type === "result" && "usage" in msg && msg.usage) {
-      usage = {
-        input: msg.usage.input_tokens ?? 0,
-        output: msg.usage.output_tokens ?? 0,
-      };
+    if (msg.type === "result") {
+      if ("usage" in msg && msg.usage) {
+        usage = {
+          input: msg.usage.input_tokens ?? 0,
+          output: msg.usage.output_tokens ?? 0,
+        };
+      }
+      if ("total_cost_usd" in msg && typeof msg.total_cost_usd === "number") {
+        costUsd = msg.total_cost_usd;
+      }
     }
   }
 
-  return { text: chunks.join("").trim(), sessionId, usage };
+  return { text: chunks.join("").trim(), sessionId, usage, costUsd };
 }

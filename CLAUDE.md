@@ -32,8 +32,9 @@ channel(s) ── IncomingMessage ──► handler ──► router (picks mode
 | `src/channels/telegram.ts` | Grammy-based Telegram adapter |
 | `src/channels/cli.ts` | Local terminal channel — primary smoke test |
 | `src/router.ts` | Hybrid model picker: trivial-message + code-keyword heuristics, falls back to a Haiku classifier |
-| `src/agent.ts` | Thin wrapper around `query()` from `@anthropic-ai/claude-agent-sdk` — collects text + sessionId + usage |
+| `src/agent.ts` | Thin wrapper around `query()` from `@anthropic-ai/claude-agent-sdk` — collects text + sessionId + usage + `total_cost_usd` |
 | `src/state.ts` | Per-conversation `{ modelOverride, sessionId, lastSeen }` persisted to `state.json` |
+| `src/cost.ts` | Records per-message USD spend to `costs.json` (totals + by-model + by-day). `/cost` reads from here |
 
 ## Dev commands
 
